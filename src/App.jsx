@@ -1,121 +1,98 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useEffect, useState } from 'react'
+import {
+  addSubmission,
+  listenSubmissions,
+  signInAnon,
+  onAuthChange,
+} from './firebase'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [text, setText] = useState('')
+  const [submissions, setSubmissions] = useState([])
+  const [user, setUser] = useState(null)
+  const [isTeacherView, setIsTeacherView] = useState(false)
+  const [loadingAuth, setLoadingAuth] = useState(false)
+
+  useEffect(() => {
+    const unsubAuth = onAuthChange((u) => {
+      setUser(u)
+      setLoadingAuth(false)
+    })
+    const unsubData = listenSubmissions(setSubmissions)
+    return () => {
+      unsubAuth()
+      // onValue no da función de cleanup directa; en un proyecto
+      // grande usarías off() con la referencia
+    }
+  }, [])
+
+  const handleSend = async () => {
+    if (!text.trim()) return
+    await addSubmission(text.trim(), user?.uid)
+    setText('')
+  }
+
+  const handleTeacherMode = async () => {
+    if (user) {
+      setIsTeacherView((prev) => !prev)
+      return
+    }
+    setLoadingAuth(true)
+    try {
+      await signInAnon()
+      setIsTeacherView(true)
+    } catch (e) {
+      console.error(e)
+      setLoadingAuth(false)
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app-container">
+      <header className="app-header">
+        <h1>Dictation</h1>
+        <p>Write the sentence. Press Send.</p>
+      </header>
 
-      <div className="ticks"></div>
+      <main className="app-main">
+        <section className="input-section">
+          <label className="input-label">Your sentence</label>
+          <textarea
+            className="input-textarea"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="I like English."
+          />
+          <button className="btn-primary" onClick={handleSend}>
+            Send
+          </button>
+        </section>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <section className="teacher-section">
+          <button
+            className="btn-secondary"
+            onClick={handleTeacherMode}
+            disabled={loadingAuth}
+          >
+            {isTeacherView ? 'Hide teacher view' : 'Teacher mode'}
+          </button>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+          {isTeacherView && (
+            <div className="list-panel">
+              <h2>All sentences</h2>
+              <ul className="list">
+                {submissions.map((s) => (
+                  <li key={s.id} className="list-item">
+                    {s.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
   )
 }
 
