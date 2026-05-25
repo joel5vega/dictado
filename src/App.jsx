@@ -17,10 +17,12 @@ const coursesOptions = [
   '6A', '6B',
 ]
 
+const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+
 function App() {
   const [text, setText] = useState('')
   const [name, setName] = useState('')
-  const [course, setCourse] = useState('2A')
+  const [course, setCourse] = useState('')
 
   const [submissions, setSubmissions] = useState([])
   const [sessions, setSessions] = useState([])
@@ -30,12 +32,14 @@ function App() {
   const [loadingAuth, setLoadingAuth] = useState(false)
   const [teacherCourseFilter, setTeacherCourseFilter] = useState('ALL')
 
-  // teacher access
-  const [teacherKeyInput, setTeacherKeyInput] = useState('')
   const [teacherKeyUnlocked, setTeacherKeyUnlocked] = useState(false)
   const [teacherEmail, setTeacherEmail] = useState('')
   const [teacherPassword, setTeacherPassword] = useState('')
   const [teacherError, setTeacherError] = useState('')
+
+  const [sendCelebration, setSendCelebration] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+  const [showHappyOverlay, setShowHappyOverlay] = useState(false)
 
   const autosaveTimeout = useRef(null)
 
@@ -73,6 +77,19 @@ function App() {
     }, 800)
   }
 
+  const handleLetterClick = (letter) => {
+    const newText = text + letter
+    setText(newText)
+    scheduleAutosave(newText, name, course)
+  }
+
+  const handleBackspaceClick = () => {
+    if (!text) return
+    const newText = text.slice(0, -1)
+    setText(newText)
+    scheduleAutosave(newText, name, course)
+  }
+
   const handleTextChange = (e) => {
     const value = e.target.value
     setText(value)
@@ -82,6 +99,15 @@ function App() {
   const handleNameChange = (e) => {
     const newName = e.target.value
     setName(newName)
+
+    // nombre secreto para teacher
+    if (newName === 'lunaroja') {
+      setTeacherKeyUnlocked(true)
+      setTeacherError('')
+    } else {
+      setTeacherKeyUnlocked(false)
+    }
+
     scheduleAutosave(text, newName, course)
   }
 
@@ -92,23 +118,31 @@ function App() {
   }
 
   const handleSend = async () => {
-    if (!text.trim()) return
-    await addSubmission(text.trim(), user?.uid, name.trim(), course)
-  }
+    const trimmedText = text.trim()
+    const trimmedName = name.trim()
 
-  // clave secreta para desbloquear login teacher
-  const handleTeacherKeySubmit = (e) => {
-    e.preventDefault()
-    if (teacherKeyInput === 'lunaroja') {
-      setTeacherKeyUnlocked(true)
-      setTeacherError('')
-    } else {
-      setTeacherError('Wrong key')
-      setTeacherKeyUnlocked(false)
+    // evitar submissions con nombre de teacher key
+    if (trimmedName === 'lunaroja') return
+    if (!trimmedName || !course || !trimmedText) return
+
+    try {
+      await addSubmission(trimmedText, user?.uid, trimmedName, course)
+      setText('')
+
+      setSendCelebration(true)
+      setSuccessMessage('Great job! ✨')
+      setShowHappyOverlay(true)
+
+      setTimeout(() => {
+        setSendCelebration(false)
+        setSuccessMessage('')
+        setShowHappyOverlay(false)
+      }, 1500)
+    } catch (e) {
+      console.error('Error sending submission', e)
     }
   }
 
-  // login email/password para teacher
   const handleTeacherLogin = async (e) => {
     e.preventDefault()
     setLoadingAuth(true)
@@ -139,19 +173,26 @@ function App() {
       : sessions.filter((s) => s.course === teacherCourseFilter)
 
   const isTeacherLogged = !!user && isTeacherView
+  const hasName = name.trim().length > 0
+  const hasCourse = !!course
 
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Dictation</h1>
-        <p>Write the sentence. It saves as you type.</p>
+        <div className="header-badge">👩‍🚀⭐</div>
+        <h1>Space Dictation</h1>
+        <p>Write your sentence among the stars.</p>
       </header>
 
       <main className="app-main">
-        {/* Vista estudiante: solo si NO hay teacher logueado */}
+        {/* Vista estudiante */}
         {!isTeacherLogged && (
           <section className="input-section">
-            <label className="input-label">Name</label>
+            {/* Paso 1: Name */}
+            <div className="step-title">
+              <span className="step-badge">1</span>
+              <span>Write your name</span>
+            </div>
             <input
               className="input-text"
               type="text"
@@ -160,101 +201,127 @@ function App() {
               placeholder="Your name"
             />
 
-            <label className="input-label">Course</label>
-            <select
-              className="input-select"
-              value={course}
-              onChange={handleCourseChange}
-            >
-              {coursesOptions.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            {/* Paso 2: Course */}
+            {hasName && (
+              <>
+                <div className="step-title">
+                  <span className="step-badge">2</span>
+                  <span>Choose your course</span>
+                </div>
+                <select
+                  className="input-select"
+                  value={course}
+                  onChange={handleCourseChange}
+                >
+                  <option value="">Choose your course</option>
+                  {coursesOptions.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
 
-            <label className="input-label">Your sentence</label>
-            <textarea
-              className="input-textarea"
-              value={text}
-              onChange={handleTextChange}
-              placeholder="I like English."
-            />
+            {/* Paso 3: Teclado + texto */}
+            {hasName && hasCourse && (
+              <>
+                <div className="step-title">
+                  <span className="step-badge">3</span>
+                  <span>Build your sentence</span>
+                </div>
 
-            <button className="btn-primary" onClick={handleSend}>
-              Send
-            </button>
+                <div className="letters-keyboard">
+                  {alphabet.map((letter) => (
+                    <button
+                      key={letter}
+                      type="button"
+                      className="letter-button"
+                      onClick={() => handleLetterClick(letter)}
+                    >
+                      {letter}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="letter-button letter-button-delete"
+                    onClick={handleBackspaceClick}
+                  >
+                    ⌫
+                  </button>
+                </div>
+
+                <label className="input-label">Your sentence</label>
+                <textarea
+                  className="input-textarea"
+                  value={text}
+                  onChange={handleTextChange}
+                  placeholder="I like English."
+                />
+
+                <button
+                  className={`btn-primary ${
+                    sendCelebration ? 'btn-primary-celebrate' : ''
+                  }`}
+                  onClick={handleSend}
+                >
+                  Send 🙂
+                </button>
+
+                {successMessage && (
+                  <p className="success-message">{successMessage}</p>
+                )}
+              </>
+            )}
           </section>
         )}
 
         {/* Sección teacher */}
         <section className="teacher-section">
-          {/* Si teacher NO está logueado, mostramos key + login */}
-          {!isTeacherLogged && (
-            <>
-              <form
-                className="teacher-key-form"
-                onSubmit={handleTeacherKeySubmit}
-              >
-                <label className="input-label">
-                  Teacher key
-                  <input
-                    className="input-text"
-                    type="password"
-                    value={teacherKeyInput}
-                    onChange={(e) => setTeacherKeyInput(e.target.value)}
-                    placeholder="Teacher key"
-                  />
-                </label>
-                <button className="btn-secondary" type="submit">
-                  Unlock teacher login
-                </button>
-              </form>
+          {/* Login teacher (desbloqueado por nombre lunaroja) */}
+          {!isTeacherLogged && teacherKeyUnlocked && (
+            <form
+              className="teacher-login-form"
+              onSubmit={handleTeacherLogin}
+            >
+              <h2 className="teacher-title">Teacher area</h2>
+              <label className="input-label">
+                Teacher email
+                <input
+                  className="input-text"
+                  type="email"
+                  value={teacherEmail}
+                  onChange={(e) => setTeacherEmail(e.target.value)}
+                  placeholder="beth@school.local"
+                />
+              </label>
 
-              {teacherKeyUnlocked && (
-                <form
-                  className="teacher-login-form"
-                  onSubmit={handleTeacherLogin}
-                >
-                  <label className="input-label">
-                    Teacher email
-                    <input
-                      className="input-text"
-                      type="email"
-                      value={teacherEmail}
-                      onChange={(e) => setTeacherEmail(e.target.value)}
-                      placeholder="beth@school.local"
-                    />
-                  </label>
+              <label className="input-label">
+                Password
+                <input
+                  className="input-text"
+                  type="password"
+                  value={teacherPassword}
+                  onChange={(e) => setTeacherPassword(e.target.value)}
+                  placeholder="Password"
+                />
+              </label>
 
-                  <label className="input-label">
-                    Password
-                    <input
-                      className="input-text"
-                      type="password"
-                      value={teacherPassword}
-                      onChange={(e) => setTeacherPassword(e.target.value)}
-                      placeholder="Password"
-                    />
-                  </label>
-
-                  {teacherError && (
-                    <p className="error-text">{teacherError}</p>
-                  )}
-
-                  <button
-                    className="btn-secondary"
-                    type="submit"
-                    disabled={loadingAuth}
-                  >
-                    {loadingAuth ? 'Logging in...' : 'Teacher login'}
-                  </button>
-                </form>
+              {teacherError && (
+                <p className="error-text">{teacherError}</p>
               )}
-            </>
+
+              <button
+                className="btn-secondary"
+                type="submit"
+                disabled={loadingAuth}
+              >
+                {loadingAuth ? 'Logging in...' : 'Teacher login'}
+              </button>
+            </form>
           )}
 
-          {/* Vista teacher: live typing + final sentences */}
+          {/* Vista teacher */}
           {isTeacherLogged && (
             <div className="teacher-panels">
               <div className="list-panel">
@@ -311,6 +378,15 @@ function App() {
           )}
         </section>
       </main>
+
+      {showHappyOverlay && (
+        <div className="happy-overlay">
+          <div className="happy-face">
+            <span className="happy-emoji">😊</span>
+            <p className="happy-text">Great job!</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
