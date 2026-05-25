@@ -1,5 +1,6 @@
 :root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
   color: #222;
   background-color: #f7f9fc;
 }
@@ -33,11 +34,13 @@ body {
 
 .app-main {
   width: 100%;
-  max-width: 720px;
+  max-width: 960px;
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
+
+/* Estudiante */
 
 .input-section {
   background: #ffffff;
@@ -48,8 +51,28 @@ body {
 
 .input-label {
   display: block;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   margin-bottom: 8px;
+}
+
+.input-text {
+  width: 100%;
+  font-size: 1.1rem;
+  padding: 8px;
+  border-radius: 8px;
+  border: 2px solid #d0e2ff;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+}
+
+.input-select {
+  width: 100%;
+  font-size: 1.1rem;
+  padding: 8px;
+  border-radius: 8px;
+  border: 2px solid #d0e2ff;
+  box-sizing: border-box;
+  margin-bottom: 12px;
 }
 
 .input-textarea {
@@ -77,10 +100,20 @@ body {
   background-color: #4338ca;
 }
 
+/* Teacher */
+
 .teacher-section {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.teacher-key-form,
+.teacher-login-form {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .btn-secondary {
@@ -92,16 +125,40 @@ body {
   cursor: pointer;
 }
 
+.btn-secondary:hover {
+  background-color: #f3f4f6;
+}
+
+.teacher-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 800px) {
+  .teacher-panels {
+    flex-direction: row;
+  }
+}
+
 .list-panel {
+  flex: 1;
   background: #ffffff;
   padding: 16px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.list-panel h2 {
-  margin-top: 0;
-  font-size: 1.4rem;
+.teacher-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.teacher-controls h2 {
+  margin: 0;
+  font-size: 1.3rem;
 }
 
 .list {
@@ -111,7 +168,16 @@ body {
 }
 
 .list-item {
-  padding: 4px 0;
-  font-size: 1.1rem;
+  padding: 6px 0;
+  font-size: 1.05rem;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.list-text {
+  margin-top: 4px;
+}
+
+.error-text {
+  color: #b91c1c;
+  font-size: 0.95rem;
 }
