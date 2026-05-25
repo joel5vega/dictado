@@ -27,20 +27,35 @@ const app = initializeApp(firebaseConfig)
 const auth = getAuth(app)
 const db = getDatabase(app)
 
+// helper sesión local
+const getSessionId = () => {
+  const key = 'dictado_session_id'
+  let val = localStorage.getItem(key)
+  if (!val) {
+    val = crypto.randomUUID()
+    localStorage.setItem(key, val)
+  }
+  return val
+}
+
 // submissions (frases finales)
 const submissionsRef = ref(db, 'submissions')
-const sessionsRef = ref(db, 'sessions')
+
 const addSubmission = async (text, uid, name, course) => {
+  const sessionId = getSessionId()
   return push(submissionsRef, {
     text,
     name: name ?? '',
     course: course ?? '',
     uid: uid ?? null,
+    sessionId,
     createdAt: serverTimestamp(),
   })
 }
 
 // sessions (texto en vivo por sesión)
+const sessionsRef = ref(db, 'sessions')
+
 const listenSessions = (callback) => {
   onValue(sessionsRef, (snapshot) => {
     const data = snapshot.val() || {}
@@ -50,16 +65,6 @@ const listenSessions = (callback) => {
     }))
     callback(list)
   })
-}
-
-const getSessionId = () => {
-  const key = 'dictado_session_id'
-  let val = localStorage.getItem(key)
-  if (!val) {
-    val = crypto.randomUUID()
-    localStorage.setItem(key, val)
-  }
-  return val
 }
 
 const getSessionRef = () => {
@@ -80,14 +85,34 @@ const updateSessionText = async (text, uid, name, course) => {
 
 // teacher view: escucha submissions
 const listenSubmissions = (callback) => {
+  console.log('listenSubmissions attached to /submissions')
+
   onValue(submissionsRef, (snapshot) => {
     const data = snapshot.val() || {}
+    console.log('listenSubmissions snapshot raw', data)
+
     const list = Object.entries(data).map(([id, value]) => ({
       id,
       ...value,
     }))
+
+    console.log('listenSubmissions list length', list.length)
     callback(list)
   })
+}
+
+// control (abrir/cerrar envío)
+const controlRef = ref(db, 'control')
+
+const listenControl = (callback) => {
+  onValue(controlRef, (snapshot) => {
+    const data = snapshot.val() || {}
+    callback(data)
+  })
+}
+
+const setControlState = async (isOpen) => {
+  return set(controlRef, { isOpen })
 }
 
 // login teacher con email/contraseña
@@ -95,6 +120,9 @@ const signInTeacher = (email, password) =>
   signInWithEmailAndPassword(auth, email, password)
 
 const onAuthChange = (callback) => onAuthStateChanged(auth, callback)
+
+// sesión actual del alumno
+const getCurrentSessionId = () => getSessionId()
 
 export {
   auth,
@@ -104,5 +132,8 @@ export {
   signInTeacher,
   onAuthChange,
   updateSessionText,
-  listenSessions
+  listenSessions,
+  listenControl,
+  setControlState,
+  getCurrentSessionId,
 }

@@ -6,6 +6,8 @@ import {
   signInTeacher,
   onAuthChange,
   updateSessionText,
+  listenControl,
+  setControlState as setControlStateRemote,
 } from './firebase'
 import './App.css'
 
@@ -41,10 +43,13 @@ function App() {
   const [successMessage, setSuccessMessage] = useState('')
   const [showHappyOverlay, setShowHappyOverlay] = useState(false)
 
+  const [controlState, setControlStateLocal] = useState({ isOpen: true })
+
   const autosaveTimeout = useRef(null)
 
   useEffect(() => {
     const unsubAuth = onAuthChange((u) => {
+      console.log('Auth change', u?.uid)
       setUser(u)
       setLoadingAuth(false)
       if (u) {
@@ -54,8 +59,13 @@ function App() {
 
     listenSubmissions(setSubmissions)
     listenSessions(setSessions)
+    listenControl((data) => {
+      console.log('Control state from DB', data)
+      setControlStateLocal(data)
+    })
 
     return () => {
+      console.log('App cleanup')
       unsubAuth()
     }
   }, [])
@@ -121,9 +131,9 @@ function App() {
     const trimmedText = text.trim()
     const trimmedName = name.trim()
 
-    // evitar submissions con nombre de teacher key
     if (trimmedName === 'lunaroja') return
     if (!trimmedName || !course || !trimmedText) return
+    if (!controlState.isOpen) return
 
     try {
       await addSubmission(trimmedText, user?.uid, trimmedName, course)
@@ -162,6 +172,14 @@ function App() {
     setTeacherCourseFilter(e.target.value)
   }
 
+  const handleToggleControl = async () => {
+    try {
+      await setControlStateRemote(!controlState.isOpen)
+    } catch (e) {
+      console.error('Error updating control state', e)
+    }
+  }
+
   const filteredSubmissions =
     teacherCourseFilter === 'ALL'
       ? submissions
@@ -173,14 +191,27 @@ function App() {
       : sessions.filter((s) => s.course === teacherCourseFilter)
 
   const isTeacherLogged = !!user && isTeacherView
+  const controlIsOpen = controlState.isOpen !== false
+  console.log('controlIsOpen', controlIsOpen)
+
   const hasName = name.trim().length > 0
   const hasCourse = !!course
 
+  // ahora filtramos por name + course
+  const mySubmissions = submissions.filter(
+    (s) => s.name === name && s.course === course
+  )
+  console.log('DEBUG name/course', { name, course })
+console.log(
+  'DEBUG sample submission',
+  submissions[0] && { name: submissions[0].name, course: submissions[0].course }
+)
+console.log('DEBUG mySubmissions length', mySubmissions.length)
   return (
     <div className="app-container">
       <header className="app-header">
         <div className="header-badge">👩‍🚀⭐</div>
-        <h1>Dictation</h1>
+        <h1>Space Dictation</h1>
         <p>Write your sentence among the stars.</p>
       </header>
 
@@ -223,8 +254,8 @@ function App() {
               </>
             )}
 
-            {/* Paso 3: Teclado + texto */}
-            {hasName && hasCourse && (
+            {/* Modo dictado (control abierto) */}
+            {hasName && hasCourse && controlIsOpen && (
               <>
                 <div className="step-title">
                   <span className="step-badge">3</span>
@@ -272,6 +303,37 @@ function App() {
                   <p className="success-message">{successMessage}</p>
                 )}
               </>
+            )}
+
+            {/* Modo revisión (control cerrado) */}
+            {hasName && hasCourse && !controlIsOpen && (
+              <div className="review-section">
+                <div className="review-header">
+                  <p>
+                    <strong>Name:</strong> {name || '—'}
+                  </p>
+                  <p>
+                    <strong>Course:</strong> {course || '—'}
+                  </p>
+                </div>
+
+                <h3 className="review-title">Your answers</h3>
+                {mySubmissions.length === 0 && (
+                  <p className="review-empty">No answers yet.</p>
+                )}
+                {mySubmissions.length > 0 && (
+                  <ul className="list my-answers-list">
+                    {mySubmissions.map((s, index) => (
+                      <li key={s.id} className="list-item">
+                        <span className="answer-index">
+                          #{index + 1}
+                        </span>
+                        <div className="list-text">{s.text}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </section>
         )}
@@ -323,58 +385,74 @@ function App() {
 
           {/* Vista teacher */}
           {isTeacherLogged && (
-            <div className="teacher-panels">
-              <div className="list-panel">
-                <div className="teacher-controls">
-                  <h2>Live typing (sessions)</h2>
-                  <label className="input-label">
-                    Course filter
-                    <select
-                      className="input-select"
-                      value={teacherCourseFilter}
-                      onChange={handleTeacherCourseFilterChange}
-                    >
-                      <option value="ALL">All courses</option>
-                      {coursesOptions.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <ul className="list">
-                  {filteredSessions.map((s) => (
-                    <li key={s.id} className="list-item">
-                      <strong>{s.name || 'No name'}</strong>{' '}
-                      <span>({s.course || 'No course'})</span>
-                      <div className="list-text">
-                        {s.text || '<empty>'}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+            <>
+              <div className="teacher-control-bar">
+                <span>
+                  Student sending is{' '}
+                  <strong>{controlIsOpen ? 'OPEN' : 'CLOSED'}</strong>
+                </span>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleToggleControl}
+                >
+                  {controlIsOpen ? 'Close sending' : 'Open sending'}
+                </button>
               </div>
 
-              <div className="list-panel">
-                <div className="teacher-controls">
-                  <h2>Final sentences (submissions)</h2>
+              <div className="teacher-panels">
+                <div className="list-panel">
+                  <div className="teacher-controls">
+                    <h2>Live typing (sessions)</h2>
+                    <label className="input-label">
+                      Course filter
+                      <select
+                        className="input-select"
+                        value={teacherCourseFilter}
+                        onChange={handleTeacherCourseFilterChange}
+                      >
+                        <option value="ALL">All courses</option>
+                        {coursesOptions.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <ul className="list">
+                    {filteredSessions.map((s) => (
+                      <li key={s.id} className="list-item">
+                        <strong>{s.name || 'No name'}</strong>{' '}
+                        <span>({s.course || 'No course'})</span>
+                        <div className="list-text">
+                          {s.text || '<empty>'}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
 
-                <ul className="list">
-                  {filteredSubmissions.map((s) => (
-                    <li key={s.id} className="list-item">
-                      <strong>{s.name || 'No name'}</strong>{' '}
-                      <span>({s.course || 'No course'})</span>
-                      <div className="list-text">
-                        {s.text}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <div className="list-panel">
+                  <div className="teacher-controls">
+                    <h2>Final sentences (submissions)</h2>
+                  </div>
+
+                  <ul className="list">
+                    {filteredSubmissions.map((s) => (
+                      <li key={s.id} className="list-item">
+                        <strong>{s.name || 'No name'}</strong>{' '}
+                        <span>({s.course || 'No course'})</span>
+                        <div className="list-text">
+                          {s.text}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </section>
       </main>

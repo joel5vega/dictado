@@ -469,3 +469,50 @@ body {
     height: 56px;
   }
 }
+
+.teacher-control-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background-color: #020617;
+  border: 1px solid #4b5563;
+  color: #e5e7eb;
+}
+
+.review-section {
+  margin-top: 16px;
+  padding-top: 8px;
+  border-top: 1px solid #374151;
+}
+
+.review-header p {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.review-title {
+  margin: 10px 0 6px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.review-empty {
+  font-size: 0.95rem;
+  color: #9ca3af;
+}
+
+.my-answers-list {
+  margin-top: 4px;
+}
+
+.answer-index {
+  display: inline-block;
+  min-width: 24px;
+  margin-right: 8px;
+  font-size: 0.95rem;
+  color: #9ca3af;
+}
