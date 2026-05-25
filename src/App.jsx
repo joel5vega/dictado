@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   addSubmission,
   listenSubmissions,
   signInAnon,
   onAuthChange,
+  updateSessionText,
 } from './firebase'
-import './App.css'
 
 function App() {
   const [text, setText] = useState('')
@@ -13,6 +13,7 @@ function App() {
   const [user, setUser] = useState(null)
   const [isTeacherView, setIsTeacherView] = useState(false)
   const [loadingAuth, setLoadingAuth] = useState(false)
+  const autosaveTimeout = useRef(null)
 
   useEffect(() => {
     const unsubAuth = onAuthChange((u) => {
@@ -22,15 +23,34 @@ function App() {
     const unsubData = listenSubmissions(setSubmissions)
     return () => {
       unsubAuth()
-      // onValue no da función de cleanup directa; en un proyecto
-      // grande usarías off() con la referencia
+      // para sessions usaríamos off() si añadimos escucha
     }
   }, [])
+
+  const autosave = async (value) => {
+    // guarda texto actual de esta sesión en /sessions
+    try {
+      await updateSessionText(value, user?.uid)
+    } catch (e) {
+      console.error('Autosave error', e)
+    }
+  }
+
+  const handleChange = (e) => {
+    const value = e.target.value
+    setText(value)
+
+    if (autosaveTimeout.current) {
+      clearTimeout(autosaveTimeout.current)
+    }
+    autosaveTimeout.current = setTimeout(() => {
+      autosave(value)
+    }, 800) // pausa de 0.8s antes de guardar
+  }
 
   const handleSend = async () => {
     if (!text.trim()) return
     await addSubmission(text.trim(), user?.uid)
-    setText('')
   }
 
   const handleTeacherMode = async () => {
@@ -52,7 +72,7 @@ function App() {
     <div className="app-container">
       <header className="app-header">
         <h1>Dictation</h1>
-        <p>Write the sentence. Press Send.</p>
+        <p>Write the sentence. It saves as you type.</p>
       </header>
 
       <main className="app-main">
@@ -61,7 +81,7 @@ function App() {
           <textarea
             className="input-textarea"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleChange}
             placeholder="I like English."
           />
           <button className="btn-primary" onClick={handleSend}>

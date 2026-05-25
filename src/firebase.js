@@ -9,7 +9,7 @@ import {
   ref,
   push,
   serverTimestamp,
-  onValue,
+  onValue,set,
 } from 'firebase/database'
 
 const firebaseConfig = {
@@ -27,7 +27,15 @@ const auth = getAuth(app)
 const db = getDatabase(app)
 
 const submissionsRef = ref(db, 'submissions')
-
+const getSessionId = () => {
+  const key = 'dictado_session_id'
+  let val = localStorage.getItem(key)
+  if (!val) {
+    val = crypto.randomUUID()
+    localStorage.setItem(key, val)
+  }
+  return val
+}
 const addSubmission = async (text, uid) => {
   return push(submissionsRef, {
     text,
@@ -35,7 +43,19 @@ const addSubmission = async (text, uid) => {
     createdAt: serverTimestamp(),
   })
 }
+const getSessionRef = () => {
+  const sessionId = getSessionId()
+  return ref(db, `sessions/${sessionId}`)
+}
 
+const updateSessionText = async (text, uid) => {
+  const sessionRef = getSessionRef()
+  return set(sessionRef, {
+    text,
+    uid: uid ?? null,
+    updatedAt: serverTimestamp(),
+  })
+}
 const listenSubmissions = (callback) => {
   onValue(submissionsRef, (snapshot) => {
     const data = snapshot.val() || {}
@@ -57,5 +77,7 @@ export {
   addSubmission,
   listenSubmissions,
   signInAnon,
-  onAuthChange,
+  onAuthChange,  
+  updateSessionText,
+  getSessionId,
 }
