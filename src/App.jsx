@@ -180,7 +180,7 @@ function App() {
     <div className="app-container">
       <header className="app-header">
         <div className="header-badge">👩‍🚀⭐</div>
-        <h1>Space Dictation</h1>
+        <h1>Dictation</h1>
         <p>Write your sentence among the stars.</p>
       </header>
 
